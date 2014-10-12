@@ -378,7 +378,6 @@ void PageIndexTracker::WriteNewIndex(void *data, unsigned int size, unsigned int
     }
 }
 
-
 //returned pair of (number, -1) means invalid read
 std::pair<unsigned int, int> get_free_index_and_entries(const void *data, unsigned long size)
 {

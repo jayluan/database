@@ -1,7 +1,7 @@
 
 include ../makefile.inc
 
-all: librbf.a rbftest 
+all: librbf.a rbftest unittest
 
 # lib file dependencies
 librbf.a: librbf.a(pfm.o)  # and possibly other .o files
@@ -12,6 +12,9 @@ pfm.o: pfm.h
 rbfm.o: rbfm.h
 
 rbftest.o: pfm.h rbfm.h 
+
+unittest: unittest.cpp unittest.h pfm.h rbfm.h
+	$(CC) $(CPPFLAGS) -o unittest unittest.cpp  $(LFLAGS) $(LIBS) librbf.a $(CODEROOT)/rbf/librbf.a
 
 # binary dependencies
 rbftest: rbftest.o librbf.a $(CODEROOT)/rbf/librbf.a

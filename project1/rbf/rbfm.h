@@ -169,6 +169,7 @@ public:
     unsigned int GetIndexSize();
     bool ok();
     void WriteNewIndex(void* data, unsigned int size, unsigned int length);
+
 private:
     unsigned int m_pageSize;
     int m_status;
