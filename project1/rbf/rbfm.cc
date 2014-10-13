@@ -105,7 +105,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
     rid.pageNum = fileHandle.getNumberOfPages()-1;
     rid.slotNum = m_pageIndexTracker->GetNextSlotID() - 1;
 
-    delete page_data;
+    delete [] page_data;
     return 0;
 }
 
@@ -145,8 +145,8 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
 //    recordSize = compute_descriptor_size(recordDescriptor, page_data + offset);
     memcpy(static_cast<char*>(data), page_data + offset, recordSize);   //Copy that ish over
 
-    delete page_data;
-    delete tmpdata;
+    delete [] page_data;
+    delete [] tmpdata;
     return 0;
 }
 
@@ -201,7 +201,7 @@ RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor
                     memcpy(tmpString, static_cast<const char *>(data)+position + sizeof(int), *tmpSize);
                     std::cout << tmpString << std::endl;
                     position += sizeof(int)+*tmpSize;
-                    delete tmpString;
+                    delete [] tmpString;
                     delete tmpSize;
                     break;
             }
@@ -243,6 +243,7 @@ unsigned long compute_descriptor_size(std::vector<Attribute> recordDescriptor, c
                 memcpy(tmpCharSize, data+totalSize, sizeof(int));
                 totalSize += sizeof(int);
                 totalSize += *tmpCharSize;
+                delete tmpCharSize;
                 break;
         }
     }
