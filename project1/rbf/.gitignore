@@ -1,0 +1,6 @@
+*.o
+*.a
+callgrind.*
+test_4
+test_11a
+test_11a_rids
