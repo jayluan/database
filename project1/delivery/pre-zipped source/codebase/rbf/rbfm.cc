@@ -21,12 +21,12 @@ RecordBasedFileManager* RecordBasedFileManager::instance()
 RecordBasedFileManager::RecordBasedFileManager()
 {
     m_fileManager = PagedFileManager::instance();
-    m_pageIndexTracker = new PageIndexTracker();
+    m_slotDirectory = new SlotDirectory();
 }
 
 RecordBasedFileManager::~RecordBasedFileManager()
 {
-    delete m_pageIndexTracker;
+    delete m_slotDirectory;
 }
 
 RC RecordBasedFileManager::createFile(const string &fileName)
@@ -75,7 +75,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
     {
         //First read the page and check the slot directory for free space
         fileHandle.readPage(fileHandle.getNumberOfPages()-1, static_cast<void*>(page_data));
-        if(m_pageIndexTracker->LoadPageData(page_data, PAGE_SIZE) < 0)
+        if(m_slotDirectory->LoadPageData(page_data, PAGE_SIZE) < 0)
         {
             /*Normally I'd assert if this happened, because it shouldnt. But since
               I just want to pass unit tests right now, I'm gonna continue*/
@@ -85,14 +85,14 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         }
 
         //If we have enough free space on a page, write the data
-        int offset = m_pageIndexTracker->GetNextOffset();               //Note the free space offset
-        spaceRemaining = m_pageIndexTracker->GetFreeSpaceRemaining();
+        int offset = m_slotDirectory->GetNextOffset();               //Note the free space offset
+        spaceRemaining = m_slotDirectory->GetFreeSpaceOnPage();
         if(spaceRemaining >= recordSize)
         {
             memcpy(page_data + offset, &recordSize, sizeof(unsigned int));  //Append record length value
             offset += sizeof(unsigned int);
             memcpy(page_data + offset, static_cast<const char*>(data), recordSize);
-            m_pageIndexTracker->WriteNewIndex(page_data, PAGE_SIZE, recordSize);    //Write new record into the page
+            m_slotDirectory->WriteNewSlot(page_data, PAGE_SIZE, recordSize);    //Write new record into the page
 
             if(fileHandle.writePage(fileHandle.getNumberOfPages()-1, static_cast<void*>(page_data)) != 0)
                 return -1;
@@ -101,24 +101,6 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
             break;  //Break out of loop if it's done writing the data
         }
     }
-
-    //Read and add new data
-//    fileHandle.readPage(fileHandle.getNumberOfPages()-1, static_cast<void*>(page_data));
-//    if(m_pageIndexTracker->LoadPageData(page_data, PAGE_SIZE) < 0) return -1;
-
-//    int spaceRemaining = m_pageIndexTracker->GetFreeSpaceRemaining();
-
-    //Make sure we have positive offset and enough space on the page
-//    if(spaceRemaining > static_cast<int>(recordSize) && spaceRemaining > 0)
-//    {
-//        memcpy(page_data + offset, &recordSize, sizeof(unsigned int));  //Append record length value
-//        offset += sizeof(unsigned int);
-//        memcpy(page_data + offset, static_cast<const char*>(data), recordSize);
-//        m_pageIndexTracker->WriteNewIndex(page_data, PAGE_SIZE, recordSize);    //Write new record into the page
-
-//        if(fileHandle.writePage(fileHandle.getNumberOfPages()-1, static_cast<void*>(page_data)) != 0)
-//            return -1;
-//    }
 
     //If not enough space on any existing page, append a page and write data to new page
     if(!dataWritten)
@@ -129,15 +111,15 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         memcpy(page_data + offset, data, recordSize);
         write_defaul_index_bytes(page_data, PAGE_SIZE); //write an index at the end of the page
         //Read and write new record into the page
-        if(m_pageIndexTracker->LoadPageData(page_data, PAGE_SIZE) < 0) return -1;
-        m_pageIndexTracker->WriteNewIndex(page_data, PAGE_SIZE, recordSize);
+        if(m_slotDirectory->LoadPageData(page_data, PAGE_SIZE) < 0) return -1;
+        m_slotDirectory->WriteNewSlot(page_data, PAGE_SIZE, recordSize);
 
         if(fileHandle.appendPage(static_cast<void*>(page_data)) != 0) return -1;      
     }
 
     //Reference back the page number and slot number
     rid.pageNum = fileHandle.getNumberOfPages()-1;
-    rid.slotNum = m_pageIndexTracker->GetNextSlotID() - 1;
+    rid.slotNum = m_slotDirectory->GetNextSlotID() - 1;
 
     delete [] page_data;
     return 0;
@@ -169,9 +151,9 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
         return -1;
     }
 
-    m_pageIndexTracker->LoadPageData(page_data, PAGE_SIZE);
-    int offset = m_pageIndexTracker->GetOffset(rid.slotNum);   //Get the offset from the beginning of the page for the RID
-    if(!m_pageIndexTracker->ok()) return -1;
+    m_slotDirectory->LoadPageData(page_data, PAGE_SIZE);
+    int offset = m_slotDirectory->GetOffset(rid.slotNum);   //Get the offset from the beginning of the page for the RID
+    if(!m_slotDirectory->ok()) return -1;
 
     //Compute the descriptor size, Afigure out FO REALZ how much data is actually there
     memcpy(&recordSize, page_data + offset, sizeof(unsigned int));
@@ -286,7 +268,7 @@ unsigned long compute_descriptor_size(std::vector<Attribute> recordDescriptor, c
 }
 
 
-PageIndexTracker::PageIndexTracker()
+SlotDirectory::SlotDirectory()
 {
     m_pageSize = 0;
     m_status = -1;          //Have to load page to do anything
@@ -294,19 +276,19 @@ PageIndexTracker::PageIndexTracker()
     m_indices.clear();
 }
 
-PageIndexTracker::PageIndexTracker(const void *data, unsigned int size)
+SlotDirectory::SlotDirectory(const void *data, unsigned int size)
 {
     m_status = 0;
     LoadPageData(data, size);
 }
 
-PageIndexTracker::~PageIndexTracker()
+SlotDirectory::~SlotDirectory()
 {
 
 }
 
 //Load the void* page data and parse the index array at the end of the page
-int PageIndexTracker::LoadPageData(const void *data, unsigned int size)
+int SlotDirectory::LoadPageData(const void *data, unsigned int size)
 {
     m_pageSize = size;
     m_status = 0;
@@ -349,21 +331,21 @@ int PageIndexTracker::LoadPageData(const void *data, unsigned int size)
 }
 
 //Returns next free slot ID
-int PageIndexTracker::GetNextSlotID()
+int SlotDirectory::GetNextSlotID()
 {
     if(!ok()) return -1;
     return m_indices.size();
 }
 
 //Returns next free offset in bytes
-int PageIndexTracker::GetNextOffset()
+int SlotDirectory::GetNextOffset()
 {
     if(!ok()) return -1;
     return m_freeSpaceIndex;
 }
 
 //Returns the beginning offset for a slot number
-unsigned int PageIndexTracker::GetOffset(int slotNum)
+unsigned int SlotDirectory::GetOffset(int slotNum)
 {
     assert(ok() == true);
     if(slotNum < static_cast<int>(m_indices.size()))
@@ -375,7 +357,7 @@ unsigned int PageIndexTracker::GetOffset(int slotNum)
 }
 
 //Returns the size in bytes, of the index
-unsigned int PageIndexTracker::GetIndexSize()
+unsigned int SlotDirectory::GetDirectorySize()
 {
     assert(ok() == true);
     //(free space index)bytes + (size of index)bytes + (actual size of index)bytes
@@ -383,23 +365,23 @@ unsigned int PageIndexTracker::GetIndexSize()
 }
 
 //Returns the free space left, not accounting for a new index that needs to be written
-unsigned int PageIndexTracker::GetFreeSpaceRemaining()
+unsigned int SlotDirectory::GetFreeSpaceOnPage()
 {
     assert(ok() == true);
 
     /*Space remaining = size of page - size of current data - size of index - size of
     new index (from the data that's about to be inserted) - length of record bytes*/
-    return m_pageSize - GetIndexSize() - GetNextOffset() - 2*sizeof(unsigned int);
+    return m_pageSize - GetDirectorySize() - GetNextOffset() - 2*sizeof(unsigned int);
 }
 
 //Return the index tracker status
-bool PageIndexTracker::ok()
+bool SlotDirectory::ok()
 {
     return (m_status >= 0);
 }
 
 //Write a new index into the current page
-void PageIndexTracker::WriteNewIndex(void *data, unsigned int size, unsigned int length)
+void SlotDirectory::WriteNewSlot(void *data, unsigned int size, unsigned int length)
 {
     //Update class variables with new values
     //First free space index + length bytes + length of record

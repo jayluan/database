@@ -1,6 +1,6 @@
 #include "unittest.h"
 
-void PageIndexTrackerTest::SetUp()
+void SlotDirectoryTest::SetUp()
 {
     //Setup Page
     s_page_size = PAGE_SIZE;
@@ -11,65 +11,65 @@ void PageIndexTrackerTest::SetUp()
     //Create catalogue data on the page
     writePageCatalogue(s_page, s_page_size, s_recordSize, s_freespacePos);
 
-    s_IndexTracker.LoadPageData(s_page, s_page_size);
+    s_slotDirectory.LoadPageData(s_page, s_page_size);
 //    for(int i = 0; i<3; i++)
 //        prepareLargeRecord(i, );
 
 }
-void PageIndexTrackerTest::TearDown()
+void SlotDirectoryTest::TearDown()
 {
     delete static_cast<char*>(s_page);
 }
 
 //Make sure loading works
-TEST_F(PageIndexTrackerTest, LoadPageDataTest)
+TEST_F(SlotDirectoryTest, LoadPageDataTest)
 {
-    ASSERT_EQ(s_IndexTracker.ok(), true);
-    ASSERT_EQ(s_IndexTracker.LoadPageData(s_page, s_page_size), 0);
+    ASSERT_EQ(s_slotDirectory.ok(), true);
+    ASSERT_EQ(s_slotDirectory.LoadPageData(s_page, s_page_size), 0);
 }
 
 //Check GetNextOffset. Should be 10
-TEST_F(PageIndexTrackerTest, GetNextSlotID)
+TEST_F(SlotDirectoryTest, GetNextSlotID)
 {
-    ASSERT_EQ(s_IndexTracker.ok(), true);
-    ASSERT_EQ(s_IndexTracker.GetNextSlotID(), s_recordSize);
+    ASSERT_EQ(s_slotDirectory.ok(), true);
+    ASSERT_EQ(s_slotDirectory.GetNextSlotID(), s_recordSize);
 }
 
 //Check next offset
-TEST_F(PageIndexTrackerTest, GetNextOffset)
+TEST_F(SlotDirectoryTest, GetNextOffset)
 {
-    ASSERT_EQ(s_IndexTracker.ok(), true);
-    ASSERT_EQ(s_IndexTracker.GetNextOffset(), s_freespacePos);
+    ASSERT_EQ(s_slotDirectory.ok(), true);
+    ASSERT_EQ(s_slotDirectory.GetNextOffset(), s_freespacePos);
 }
 
 //Check get offset of a slot number
-TEST_F(PageIndexTrackerTest, GetOffset)
+TEST_F(SlotDirectoryTest, GetOffset)
 {
     int desiredPos = 5;
     ASSERT_LT(desiredPos, s_recordSize);
-    ASSERT_EQ(s_IndexTracker.GetOffset(desiredPos), desiredPos);
-    ASSERT_EQ(s_IndexTracker.ok(), true);
+    ASSERT_EQ(s_slotDirectory.GetOffset(desiredPos), desiredPos);
+    ASSERT_EQ(s_slotDirectory.ok(), true);
 }
 
 //Check bytes of the size of the index
-TEST_F(PageIndexTrackerTest, GetIndexSize)
+TEST_F(SlotDirectoryTest, GetDirectorySize)
 {
-    ASSERT_EQ(s_IndexTracker.ok(), true);
-    ASSERT_EQ(s_IndexTracker.GetIndexSize(), (s_recordSize + 2)*sizeof(unsigned int));
+    ASSERT_EQ(s_slotDirectory.ok(), true);
+    ASSERT_EQ(s_slotDirectory.GetDirectorySize(), (s_recordSize + 2)*sizeof(unsigned int));
 }
 
-TEST_F(PageIndexTrackerTest, WriteNewIndex)
+TEST_F(SlotDirectoryTest, WriteNewIndex)
 {
-    ASSERT_EQ(s_IndexTracker.ok(), true);
+    ASSERT_EQ(s_slotDirectory.ok(), true);
 
     unsigned int fakeRecordLength = 45;
     void *test_data = static_cast<char*>(new char[s_page_size]);
     writePageCatalogue(test_data, s_page_size, s_recordSize+1, s_freespacePos + fakeRecordLength + sizeof(unsigned int));
 
-    s_IndexTracker.WriteNewIndex(s_page, s_page_size, fakeRecordLength);
+    s_slotDirectory.WriteNewSlot(s_page, s_page_size, fakeRecordLength);
 
-    PageIndexTracker a(test_data, PAGE_SIZE);
-    PageIndexTracker b(s_page, PAGE_SIZE);
+    SlotDirectory a(test_data, PAGE_SIZE);
+    SlotDirectory b(s_page, PAGE_SIZE);
     ASSERT_EQ(memcmp(test_data, s_page, s_page_size), 0);
 
     delete static_cast<char*>(test_data);

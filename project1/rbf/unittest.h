@@ -4,7 +4,7 @@
 #include "pfm.h"
 #include "gtest/gtest.h"
 
-class PageIndexTrackerTest: public ::testing::Test {
+class SlotDirectoryTest: public ::testing::Test {
 protected:
 
     void SetUp();
@@ -14,7 +14,7 @@ protected:
     unsigned int s_freespacePos;
     void *s_page;
     unsigned int s_page_size;
-    PageIndexTracker s_IndexTracker;
+    SlotDirectory s_slotDirectory;
 };
 
 void writePageCatalogue(void*page, unsigned int size, unsigned int numEntries, unsigned int recordSize);

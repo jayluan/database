@@ -10,7 +10,7 @@
 
 using namespace std;
 
-class PageIndexTracker;
+class SlotDirectory;
 
 typedef struct
 {
@@ -140,13 +140,13 @@ protected:
 private:
   static RecordBasedFileManager *_rbf_manager;
   PagedFileManager *m_fileManager;
-  PageIndexTracker *m_pageIndexTracker;
+  SlotDirectory *m_slotDirectory;
   static const std::string RECORD_FILE_NAME;
 };
 
 
 /**
- * @brief The PageIndexTracker class can read a buffer and parse the index data
+ * @brief The SlotDirectory class can read a buffer and parse the index data
  *
  * TODO:
  *      - Implement an index that contains both slot ID and offset for when we
@@ -155,21 +155,21 @@ private:
  *
  *      - Implement logic to handle deletion of slot values
  */
-class PageIndexTracker
+class SlotDirectory
 {
 public:
-    PageIndexTracker();
-    PageIndexTracker(const void *data, unsigned int size = PAGE_SIZE);
-    ~PageIndexTracker();
+    SlotDirectory();
+    SlotDirectory(const void *data, unsigned int size = PAGE_SIZE);
+    ~SlotDirectory();
 
     int LoadPageData(const void *data, unsigned int size = PAGE_SIZE);
     int GetNextSlotID();
     int GetNextOffset();
     unsigned int GetOffset(int slotNum);
-    unsigned int GetIndexSize();
-    unsigned int GetFreeSpaceRemaining();
+    unsigned int GetDirectorySize();
+    unsigned int GetFreeSpaceOnPage();
     bool ok();
-    void WriteNewIndex(void* data, unsigned int size, unsigned int length);
+    void WriteNewSlot(void* data, unsigned int size, unsigned int length);
 
 private:
     unsigned int m_pageSize;
